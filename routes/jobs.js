@@ -24,4 +24,15 @@ router.delete("/:id", (req, res) => {
   res.json(deletedJob);
 });
 
+
+router.put("/:id", (req, res) => {
+  const jobId = Number(req.params.id);
+  const index = store.jobs.findIndex((job) => job.id === jobId);
+  if (index === -1) return res.status(404).json({ message: "Job not found" });
+
+  store.jobs[index] = { ...store.jobs[index], ...req.body };
+  res.json(store.jobs[index]);
+});
+
+
 module.exports = router;
