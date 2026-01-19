@@ -1,38 +1,88 @@
 const express = require("express");
 const router = express.Router();
-const store = require("../data/store");
+const pool = require("../data/db");
 
-router.get("/", (req, res) => res.json(store.jobs));
-
-router.post("/", (req, res) => {
-  const job = { id: Date.now(), ...req.body };
-  store.jobs.push(job);
-  res.status(201).json(job);
-});
-
-
-
-router.delete("/:id", (req, res) => {
-  const jobId = Number(req.params.id);
-  const index = store.jobs.findIndex(job => job.id === jobId);
-
-  if (index === -1) {
-    return res.status(404).json({ message: "Job not found" });
+router.get("/", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [jobs] = await connection.query("SELECT * FROM jobs");
+    connection.release();
+    res.json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  const deletedJob = store.jobs.splice(index, 1)[0];
-  res.json(deletedJob);
 });
 
-
-router.put("/:id", (req, res) => {
-  const jobId = Number(req.params.id);
-  const index = store.jobs.findIndex((job) => job.id === jobId);
-  if (index === -1) return res.status(404).json({ message: "Job not found" });
-
-  store.jobs[index] = { ...store.jobs[index], ...req.body };
-  res.json(store.jobs[index]);
+router.post("/", async (req, res) => {
+  try {
+    const jobId = Date.now();
+    const job = { id: jobId, ...req.body };
+    const connection = await pool.getConnection();
+    await connection.query(
+      "INSERT INTO jobs (id, title, company, description, salary) VALUES (?, ?, ?, ?, ?)",
+      [job.id, job.title, job.company, job.description, job.salary],
+    );
+    connection.release();
+    res.status(201).json(job);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+router.delete("/:id", async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    const connection = await pool.getConnection();
+
+    // Get the job first
+    const [jobs] = await connection.query("SELECT * FROM jobs WHERE id = ?", [
+      jobId,
+    ]);
+    if (jobs.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Delete the job
+    await connection.query("DELETE FROM jobs WHERE id = ?", [jobId]);
+    connection.release();
+    res.json(jobs[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/:id", async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    const connection = await pool.getConnection();
+
+    // Check if job exists
+    const [jobs] = await connection.query("SELECT * FROM jobs WHERE id = ?", [
+      jobId,
+    ]);
+    if (jobs.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Update the job
+    const updatedJob = { ...jobs[0], ...req.body };
+    await connection.query(
+      "UPDATE jobs SET title = ?, company = ?, description = ?, salary = ? WHERE id = ?",
+      [
+        updatedJob.title,
+        updatedJob.company,
+        updatedJob.description,
+        updatedJob.salary,
+        jobId,
+      ],
+    );
+    connection.release();
+    res.json(updatedJob);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

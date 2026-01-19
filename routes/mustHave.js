@@ -1,18 +1,44 @@
 const express = require("express");
 const router = express.Router();
-const store = require("../data/store");
+const pool = require("../data/db");
 
-router.get("/", (req, res) => res.json(store.mustHave));
-
-router.post("/", (req, res) => {
-  const item = { id: Date.now(), ...req.body };
-  store.mustHave.push(item);
-  res.status(201).json(item);
+router.get("/", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [items] = await connection.query("SELECT * FROM mustHave");
+    connection.release();
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.delete("/:id", (req, res) => {
-  store.mustHave = store.mustHave.filter(item => item.id !== Number(req.params.id));
-  res.status(204).end();
+router.post("/", async (req, res) => {
+  try {
+    const itemId = Date.now();
+    const item = { id: itemId, ...req.body };
+    const connection = await pool.getConnection();
+    await connection.query(
+      "INSERT INTO mustHave (id, jobId, requirement) VALUES (?, ?, ?)",
+      [item.id, item.jobId, item.requirement],
+    );
+    connection.release();
+    res.status(201).json(item);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const itemId = Number(req.params.id);
+    const connection = await pool.getConnection();
+    await connection.query("DELETE FROM mustHave WHERE id = ?", [itemId]);
+    connection.release();
+    res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;
