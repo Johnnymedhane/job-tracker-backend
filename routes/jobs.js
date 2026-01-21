@@ -9,6 +9,7 @@ router.get("/", async (req, res) => {
     connection.release();
     res.json(jobs);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -19,8 +20,8 @@ router.post("/", async (req, res) => {
     const job = { id: jobId, ...req.body };
     const connection = await pool.getConnection();
     await connection.query(
-      "INSERT INTO jobs (id, title, company, description, salary) VALUES (?, ?, ?, ?, ?)",
-      [job.id, job.title, job.company, job.description, job.salary],
+      "INSERT INTO jobs (id, title, company, website, connection, status) VALUES (?, ?, ?, ?, ?, ?)",
+      [job.id, job.title, job.company, job.website, job.connection, job.status],
     );
     connection.release();
     res.status(201).json(job);
@@ -69,15 +70,17 @@ router.put("/:id", async (req, res) => {
     // Update the job
     const updatedJob = { ...jobs[0], ...req.body };
     await connection.query(
-      "UPDATE jobs SET title = ?, company = ?, description = ?, salary = ? WHERE id = ?",
+      "UPDATE jobs SET title = ?, company = ?, website = ?, connection = ?, status = ? WHERE id = ?",
       [
         updatedJob.title,
         updatedJob.company,
-        updatedJob.description,
-        updatedJob.salary,
+        updatedJob.website,
+        updatedJob.connection,
+        updatedJob.status,
         jobId,
       ],
     );
+
     connection.release();
     res.json(updatedJob);
   } catch (error) {
